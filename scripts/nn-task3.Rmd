@@ -20,8 +20,7 @@ library(nnet)       # neural network model (single hidden layer)
 
 
 ```{r}
-# 1. Load cleaned data
-
+# 1. Load
 
 load("../data/claims-clean-example.RData")
 str(claims_clean)
@@ -62,7 +61,7 @@ X_val_scaled <- scale(X_val,
 
 
 ```{r}
-# 3. Logistic PCR baseline (for comparison)
+# 3. Logistic PCR baseline
 
 # PCA on standardized training features
 pca_fit <- prcomp(X_train_scaled, center = FALSE, scale. = FALSE)
@@ -109,8 +108,7 @@ df_train_nn <- as.data.frame(X_train_scaled) %>%
 
 df_val_nn <- as.data.frame(X_val_scaled)
 
-# Fit a neural network (one hidden layer with `size` units)
-# You can experiment with `size`, `decay`, and `maxit`.
+# Fit the neural network
 set.seed(197)
 nn_fit <- nnet(
   bclass ~ .,
@@ -153,7 +151,6 @@ save(
 # Save the accuracy summary so writeups (or other scripts) can load it
 save(results_task3, file = "../results/task3-accuracy.RData")
 
-cat("\nNeural net model and Task 3 accuracy saved in '../results/'.\n")
 ```
 
 ## Summary of Preliminary Task 3
