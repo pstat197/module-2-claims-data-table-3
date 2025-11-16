@@ -1,0 +1,102 @@
+---
+title: "prelim_2: Bigram Logistic PCR"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+library(tidyverse)
+library(tidymodels)
+library(tidytext)
+
+# for PCA and logistic regression
+library(broom)
+
+# source preprocessing functions (adjust path if needed)
+source("scripts/prelim_2_Wendy/Prelim_2_Preprocessing.R")
+```
+
+## 1. Data and preprocessing
+
+```{r load-data}
+# load raw claims data
+load("data/claims-raw.RData")
+
+# apply HTML parsing and cleaning
+claims_clean <- claims_raw %>%
+  parse_data()
+
+# keep only rows with non-missing text and labels
+claims_clean <- claims_clean %>%
+  filter(!is.na(text_clean), !is.na(bclass)) %>%
+  distinct(.id, .keep_all = TRUE)
+
+claims_clean %>% glimpse()
+```
+
+
+## 2. Tokenization: words and bigrams
+
+We now create two feature sets:
+
+- a **word-level tf-idf** matrix (using `nlp_fn`)
+- a **bigram-level tf-idf** matrix (using `nlp_bigram_fn`)
+
+```r
+```{r tokenization}
+# word-level features
+word_df <- claims_clean %>%
+  nlp_fn()
+
+# bigram-level features
+bigram_df <- claims_clean %>%
+  nlp_bigram_fn()
+
+# align on common ids and order
+ids_common <- intersect(word_df$.id, bigram_df$.id)
+
+word_df <- word_df %>%
+  filter(.id %in% ids_common) %>%
+  arrange(.id)
+
+bigram_df <- bigram_df %>%
+  filter(.id %in% ids_common) %>%
+  arrange(.id)
+
+# check alignment
+all(word_df$.id == bigram_df$.id)
+```
+
+## 3. Logistic principal component regression on word tokens
+
+We:
+
+1. Construct a tf-idf matrix from word tokens.
+2. Perform PCA.
+3. Use a subset of principal components as predictors in a logistic regression for `bclass`.
+
+```r
+```{r pcr-word}
+# response variable: binary 0/1
+y <- word_df$bclass %>%
+  droplevels() %>%
+  as.numeric() - 1
+
+# word tf-idf matrix
+X_word <- word_df %>%
+  select(-.id, -bclass) %>%
+  as.matrix()
+
+# PCA on word tf-idf
+pca_word <- prcomp(X_word, center = TRUE, scale. = TRUE)
+
+# choose number of PCs to explain (e.g.) 90% of the variance
+var_explained_word <- cumsum(pca_word$sdev^2) / sum(pca_word$sdev^2)
+k_word <- which(var_explained_word >= 0.90)[1]
+
+k_word
+```
