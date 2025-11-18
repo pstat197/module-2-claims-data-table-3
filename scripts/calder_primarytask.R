@@ -3,6 +3,12 @@ library(tidyverse)
 library(tidymodels)
 library(tensorflow)
 library(keras3)
+library(tidytext)
+library(textstem)
+library(rvest)
+library(qdapRegex)
+library(stopwords)
+library(tokenizers)
 
 # Loading in the cleaned data
 load("data/claims-clean-example.RData")
@@ -39,74 +45,77 @@ preprocess_layer <- layer_text_vectorization(
 # Preprocess the clean text
 preprocess_layer %>% adapt(claims_training_input)
 
-# Model 1: Multinomial Regression for Multiclass Label
+# Binary classification
 
-library(glmnet)
-# fit enet model
-#alpha_enet <- 0.2
-#fit_reg_multi <- glmnet(x = claims_training_input, 
-                      # y = claims_training_label_multi, 
-                        #family = 'multinomial',
-                       # alpha = alpha_enet)
-
- #choose a strength by cross-validation
-#set.seed(2084)
-#cvout_multi <- cv.glmnet(x = claims_training_input, 
-                         #y = claims_training_label_multi, 
-                         #family = 'multinomial',
-                         #alpha = alpha_enet)
-# view results
-#cvout
-# glmnet produces a matrix error where it says x should be a matrix with 2 or
-# more columns
-
-# Model 2: Model with Relu Activation function for Binary Classification
 set.seed(2084)
-model <- keras_model_sequential() %>%
-  preprocess_layer %>%
-  layer_dropout(0.2) %>%
-  layer_dense(units = 25) %>%
-  layer_dropout(0.2) %>%
-  layer_dense(1) %>%
-  layer_dropout(0.1) %>% 
-  layer_activation(activation = 'relu') %>% 
-  layer_activation(activation = 'sigmoid')
+model_binary <- keras_model_sequential() %>%
+  preprocess_layer() %>% 
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 8, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")  # binary output
 
-summary(model)
-
-# configure for training
-model %>% compile(
-  loss = 'binary_crossentropy',
-  optimizer = 'adam',
-  metrics = 'binary_accuracy'
+model_binary %>% compile(
+  optimizer = "adam",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
 )
 
+binary_history <- model_binary %>%
+ fit(claims_training_input, 
+  claims_training_label_binary,
+  validation_split = 0.2,
+  epochs = 15)
 
+summary(model_binary)
 
-# train
-history <- model %>%
+set.seed(2087)
+# Multiclass classification (5 classes)
+model_multi <- keras_model_sequential() %>%
+  preprocess_layer() %>% 
+  #layer_input(shape = 1) %>% 
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 5, activation = "softmax")  # 5-class output
+
+model_multi %>% compile(
+  optimizer = "adam",
+  loss = "categorical_crossentropy",  # For one-hot encoded labels
+  metrics = c("accuracy")
+)
+
+# Encode to One-Hot Encoding to match categorical cross-entropy
+claims_training_label_multi = to_categorical(claims_training_label_multi, 
+                                             num_classes = 5)
+  
+multi_history <- model_multi %>%
   fit(claims_training_input, 
-      claims_training_label_binary,
+      claims_training_label_multi,
       validation_split = 0.2,
       epochs = 15)
 
-plot(history)
+summary(model_multi)
 
-keras3::get_weights(model)
+# Quick Stat for Binary Class Model
 
-evaluate(model, claims_training_input, claims_training_label_binary)
+evaluate(model_binary, claims_training_input, claims_training_label_binary)
 
-save_model(model, "results/validation_model.keras")
+# Quick stat for Multiclass Model
 
-#load("data/claims-test.RData")
+evaluate(model_multi, claims_training_input, claims_training_label_multi)
 
-#source('scripts/prelim_2_Wendy/Prelim_2_Preprocessing.R')
+# Predicting on Test Data
 
-#test_clean = claims_test %>% 
- # parse_data()
+load("data/claims-test.RData")
 
-# parse_data() keeps giving an error in read_xml.raw()
+source('scripts/LorrettaScript.R')
 
-#test_result = model %>% predict(claims_test)
+# preprocess (will take a minute or two)
+claims_test_clean <- claims_test %>%
+  parse_data2()
+
+
+#binary_predict = model_binary %>% predict(claims_test$text_tmp)
 
 
