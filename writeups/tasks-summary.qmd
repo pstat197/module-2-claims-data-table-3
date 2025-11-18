@@ -1,7 +1,7 @@
 ---
 title: "Summary of exploratory tasks"
 author: 'YOUR NAMES HERE'
-date: today
+date: Tuesday, November 18, 2025
 ---
 
 ### HTML scraping
