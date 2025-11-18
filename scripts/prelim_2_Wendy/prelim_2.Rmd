@@ -12,19 +12,19 @@ knitr::opts_chunk$set(
 library(tidyverse)
 library(tidymodels)
 library(tidytext)
-
+library(here)
 # for PCA and logistic regression
 library(broom)
 
 # source preprocessing functions (adjust path if needed)
-source("scripts/prelim_2_Wendy/Prelim_2_Preprocessing.R")
+source(here("scripts/prelim_2_Wendy/Prelim_2_Preprocessing.R"))
 ```
 
 ## 1. Data and preprocessing
 
 ```{r load-data}
 # load raw claims data
-load("data/claims-raw.RData")
+load(here("data/claims-raw.RData"))
 
 # apply HTML parsing and cleaning
 claims_clean <- claims_raw %>%
@@ -46,8 +46,8 @@ We now create two feature sets:
 - a **word-level tf-idf** matrix (using `nlp_fn`)
 - a **bigram-level tf-idf** matrix (using `nlp_bigram_fn`)
 
-```r
-```{r tokenization}
+
+```{r, tokenization}
 # word-level features
 word_df <- claims_clean %>%
   nlp_fn()
@@ -79,8 +79,8 @@ We:
 2. Perform PCA.
 3. Use a subset of principal components as predictors in a logistic regression for `bclass`.
 
-```r
-```{r pcr-word}
+
+```{r, pcr-word}
 # response variable: binary 0/1
 y <- word_df$bclass %>%
   droplevels() %>%
@@ -100,3 +100,84 @@ k_word <- which(var_explained_word >= 0.90)[1]
 
 k_word
 ```
+
+Our output, k_word, is 875. This number indicates that after conducting a Principal Component Analysis (PCA) on the word-level tf-idf matrix, we are able to explain 90% of total variance with just the first 875 principal components.
+
+Next, we used these 875 principal components as predictors in a logistic regression model to estimate how well the reduced word-level features can perform in a binary classification model.
+
+```{r, glm-training}
+# add PCs from word tf_idf
+PCs_idf <- pca_word$x
+
+# create a df for PCs_idf across y
+word_pcr.df <- data.frame(
+  PCs_idf,
+  y = y
+)
+
+# logistic regression model using our PCs
+word_pcr.glm <- glm(y ~ ., family = binomial, data = word_pcr.df)
+
+# binary classification model
+# [0,1]
+p_word <- predict(word_pcr.glm, type = 'response')
+# if >.5 then 1, else 0
+p_hat_word <- as.integer(p_word > 0.5)
+# training accuracy
+word_score <- mean(p_hat_word == y)
+word_score
+```
+
+After conducting a Principal Component Analysis on word-level tf-idf features, the logistic regression model correctly classifies about 80.66% of the documents.
+
+## 4. Logistic PCR with Word log-odds & Bigram PCs
+
+```{r, logit-bigram-PCA}
+# bigram tf-idf
+bigram_pcs <- bigram_df %>% 
+  select(-.id, -bclass) %>% 
+  select(where(is.numeric)) %>% 
+  # was having ram trouble here
+  select(where(~ sum(. != 0) >= 5)) %>% 
+  as.matrix()
+
+# PCA on bigram mx  
+pca_bigram <- prcomp(bigram_pcs, bigramcenter = TRUE, scale. = TRUE)
+
+# aim for 90% var explained
+var_explained_bigram <- cumsum(pca_bigram$sdev^2) / sum(pca_bigram$sdev^2)
+k_bigram <- which(var_explained_bigram >= .90)[1]
+k_bigram
+
+```
+
+Our output, k_bigram, is 467. This number indicates that after conducting a Principal Component Analysis (PCA) on the bigram tf-idf matrix, we are able to explain 90% of total variance with just the first 467 principal components.
+
+Next, we implemented a logistic regression model that combines the predicted log-odds from the word-level PCR model with the 467 PCs calculated from the bigram tf-idf to determine whether incorporating bigram information improves binary classification performance.
+
+```{r, logit-bigram.glm}
+# 90% var bigram
+PCs_bigram <- pca_bigram$x[, 1:k_bigram]
+
+# log-odds from word_pcr.glm
+logit_word <- predict(word_pcr.glm, type = "link")
+
+link_df <- data.frame(
+  logit_word = logit_word,
+  PCs_bigram,
+  y = y
+)
+
+logit_bigram.glm <- glm(y ~ ., family = binomial, data = link_df)
+
+# binary classification model
+# [0,1]
+p_logbig <- predict(logit_bigram.glm, type = 'response')
+# if >.5 then 1, else 0
+p_hat_logbig <- as.integer(p_logbig > 0.5)
+# training accuracy
+logbig_score <- mean(p_hat_logbig == y)
+logbig_score
+```
+
+When the predicted log-odds from the word model are combined with a Principal Components Analysis on bigram features, the resulting logistic regression model correctly classifies about 85.03% of the documents. With a higher accuracy than the word-only model, this improved performance could indicate that bigrams capture additional information about the claims status of a page.
