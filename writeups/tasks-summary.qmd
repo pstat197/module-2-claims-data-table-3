@@ -8,6 +8,8 @@ date: today
 
 Does including header content improve predictions? Answer the question and provide quantitative evidence supporting your answer.
 
+To evaluate whether including header content improved prediction performance, we compared models trained on text extracted only from paragraph elements with models trained on both paragraphs and header elements. The model without headers achieved an accuracy of 0.762 and ROC AUC of 0.198, while the model including header content achieved an accuracy of 0.723 and ROC AUC of 0.760. Based on these results, including header content did not improve predictions. Including header text did substantially improve class separation, as reflected by a large increase in ROC AUC from 0.198 to 0.760. This indicates that although the model with header content was slightly less accurate in terms of correct class assignments, it provided far more informative probability estimates and a stronger ranking ability across classes.
+
 ### Bigrams
 
 Do bigrams capture additional information relevant to the classification of interest? Answer the question, **briefly** describe what analysis you conducted to arrive at your answer, and provide quantitative evidence supporting your answer.
