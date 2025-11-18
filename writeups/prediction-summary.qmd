@@ -10,6 +10,8 @@ Provide a 3-5 sentence summary of your work on the primary task. Indicate what i
 
 > *Header and paragraph content was scraped from the raw webpages and processed into term frequencies of word tokens. For binary classification, a two-layer neural network yielded an estimated 81.4% accuracy; for multiclass classification, a support vector machine gave 78% accuracy.*
 
+> *Binary class predictions method was logistic PCR. Estimated accuracy of 0.723*
+
 ### Preprocessing
 
 In one paragraph lay out your preprocessing pipeline. No need to provide exact step-by-step detail; just give an overview of the main components:
@@ -19,6 +21,8 @@ In one paragraph lay out your preprocessing pipeline. No need to provide exact s
 -   how text was cleaned
 
 -   how cleaned text was represented quantitatively
+
+We began by extracting the main textual content from each webpage by selecting paragraph elements from the raw HTML and removing all structural markup. The extracted text was then cleaned by removing URLs, emails, punctuation, digits, symbols, extra whitespace, and by converting all text to lowercase to ensure consistent token matching. After cleaning, the text was tokenized into individual words and transformed into a quantitative representation using term frequency-inverse document frequency (TF-IDF), yielding a high-dimensional numerical feature matrix suitable for statistical modeling. In Preliminary Task 1, we further reduced this feature space using principal component analysis (PCA) so that the model operated on a smaller set of orthogonal text-derived components rather than the full TF-IDF vocabulary.
 
 ### Methods
 
@@ -30,8 +34,39 @@ Describe your final predictive models. Include one paragraph with details on the
 
 -   training method
 
+For the binary classification approach, we implemented a logistic principal component regression (logistic PCR) model. Text from each webpage was converted into TF-IDF features and then reduced using principal component analysis to limit dimensionality before modeling. We selected a fixed number of principal components rather than tuning hyperparameters extensively, as the goal was to evaluate predictive performance rather than optimize it fully. The logistic model was trained using an 80/20 train-test split, with model fitting performed on the principal component features using standard maximum likelihood estimation. Model performance was measured on the held-out test set using accuracy and ROC AUC to evaluate both classification accuracy and class separation ability.
+
 ### Results
 
 Indicate the predictive accuracy of the binary classifications and the multiclass classifications. Provide a table for each, and report sensitivity, specificity, and accuracy.[^1]
 
 [^1]: Read [this article](https://yardstick.tidymodels.org/articles/multiclass.html) on multiclass averaging.
+
+For the binary classification model, predictive performance was evaluated on the held-out test set using accuracy, sensitivity, and specificity. The logistic PCR model achieved an overall accuracy of 0.723, with a sensitivity of 0.631 and a specificity of 0.824.
+
+```{r}
+library(yardstick)
+library(dplyr)
+
+# Binary Classifications --------------------------------------------
+# source('scripts/LorrettaScript.R')
+metrics_bin <- metric_set(accuracy, sensitivity, specificity)
+
+metric_results <- metrics_bin(
+  data = pcr_preds,
+  truth = bclass,
+  estimate = .pred_class,
+  event_level = "second"   # positive class is the second factor level
+)
+
+clean_results_table <- metric_results %>% 
+  select(-.estimator) %>% 
+  rename(
+    Metric = .metric,
+    Estimate = .estimate
+  )
+
+knitr::kable(clean_results_table, digits = 3, 
+      caption = "Binary Classification Performance")
+# -------------------------------------------------------------------
+```
