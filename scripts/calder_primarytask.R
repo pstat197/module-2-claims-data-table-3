@@ -9,6 +9,7 @@ library(rvest)
 library(qdapRegex)
 library(stopwords)
 library(tokenizers)
+library(xml2)
 
 # Loading in the cleaned data
 load("data/claims-clean-example.RData")
@@ -109,13 +110,18 @@ evaluate(model_multi, claims_training_input, claims_training_label_multi)
 
 load("data/claims-test.RData")
 
-source('scripts/LorrettaScript.R')
+
+
+source('scripts/preprocessing.R')
 
 # preprocess (will take a minute or two)
-claims_test_clean <- claims_test %>%
-  parse_data2()
+claim_clean_testing <- claims_test %>%
+  parse_data()
+
+#binary_predict = model_binary %>% predict(claims_clean_testing)
+
+#multi_predict = model_multi %>% predict(claims_clean_testing)
 
 
-#binary_predict = model_binary %>% predict(claims_test$text_tmp)
 
 
