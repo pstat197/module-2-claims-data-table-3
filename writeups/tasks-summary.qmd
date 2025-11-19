@@ -1,6 +1,6 @@
 ---
 title: "Summary of exploratory tasks"
-author: 'YOUR NAMES HERE'
+author: 'Lorretta Lu, Wendy Zhu, Justin Zhou, Andrew Guerra'
 date: Tuesday, November 18, 2025
 ---
 
@@ -14,6 +14,9 @@ To evaluate whether including header content improved prediction performance, we
 
 Do bigrams capture additional information relevant to the classification of interest? Answer the question, **briefly** describe what analysis you conducted to arrive at your answer, and provide quantitative evidence supporting your answer.
 
+For preliminary task 2, we performed a secondary bigram-level tokenization in addition to the primary word-level tokenization. We conducted Principal Component Analysis (PCA) separately on the word-level and bigram-level tf-idf matrices, and found that explaining 90% of the variance required 875 principal components for the word-level model and 467 components for the bigram-level model. Using the word-tokenized data, the logistic principal component regression model correctly classified about 80.66% of the documents. After incorporating the predicted log-odds from this word-level model into a second logistic regression that also included the bigram principal components, the classification accuracy increased to about 85.03%. This improvement indicates that bigrams capture additional information about the claims status of a page beyond what is contained in individual word tokens.
+
+
 ### Neural net
 
 Summarize the neural network model you trained by desribing:
@@ -25,3 +28,5 @@ Summarize the neural network model you trained by desribing:
 -   training epochs
 
 -   predictive accuracy
+
+For Task 3 we focused on building a neural network model for the binary classification problem and comparing it to the logistic principal component regression (logistic PCR) baseline from Task 1. Using the same cleaned feature matrix and a 70/30 train–validation split, we first fit a logistic PCR model and obtained a validation accuracy of about 0.48. We then trained a simple neural network with one hidden layer (10 units) on the standardized features, keeping the rest of the setup (data split and outcome definition) the same so that the results would be directly comparable. This neural network achieved a validation accuracy of about 0.61, clearly outperforming the logistic PCR baseline on the same data. Overall, Task 3 suggests that a modest neural network can capture more useful structure in the text features than the earlier linear model, and should be considered as a strong candidate for the primary predictive modeling work.
