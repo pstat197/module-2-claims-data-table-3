@@ -108,19 +108,37 @@ evaluate(model_multi, claims_training_input, claims_training_label_multi)
 
 # Predicting on Test Data
 
-load("data/claims-test.RData")
-
-
-
-source('scripts/preprocessing.R')
+load("data/claims-test-clean.RData")
 
 # preprocess (will take a minute or two)
-claim_clean_testing <- claims_test %>%
-  parse_data()
+claim_testing <- claim_clean_testing %>% 
+  pull(text_clean)
 
-#binary_predict = model_binary %>% predict(claims_clean_testing)
+binary_predict = model_binary %>% predict(claim_testing)
 
-#multi_predict = model_multi %>% predict(claims_clean_testing)
+multi_predict = model_multi %>% predict(claim_testing)
+
+preds_df = data.frame(
+  ID = claim_clean_testing$.id,
+  relevant_claim_binary = format(binary_predict[1:915], scientific = FALSE),
+  no_relevant_content = format(multi_predict[1:915,1], scientific = FALSE),
+  physical_activity = format(multi_predict[1:915,2], scientific = FALSE),
+  possible_fatality = format(multi_predict[1:915,3], scientific = FALSE),
+  potentially_unlawful_activity = format(multi_predict[1:915,4], 
+                                         scientific = FALSE),
+  other_claim_content = format(multi_predict[1:915,5], scientific = FALSE)
+)
+
+# Saving models and data frame
+
+save_model(model_binary, filepath = "results/binary-model.keras")
+
+save_model(model_multi, filepath = "results/multi-model.keras")
+
+# Deliverable 3 -  Store the data frame as an RData file. 
+
+save(preds_df, file = "preds-group[3].RData")
+
 
 
 
