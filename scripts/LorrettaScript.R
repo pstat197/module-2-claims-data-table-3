@@ -195,11 +195,11 @@ pcr_mod_text <- logistic_reg() %>%
 
 pcr_wf_text <- workflow() %>%
   add_recipe(pcr_rec) %>%
-  add_model(pcr_mod)
+  add_model(pcr_mod_text)
 
-pcr_fit_text <- fit(pcr_wf, data = train_df)
+pcr_fit_text <- fit(pcr_wf_text, data = train_df)
 
-pcr_preds_text <- predict(pcr_fit, test_df, type = "prob") %>%
+pcr_preds_text <- predict(pcr_fit_text, test_df, type = "prob") %>%
   bind_cols(predict(pcr_fit, test_df, type = "class")) %>%
   bind_cols(test_df %>% select(bclass))
 
