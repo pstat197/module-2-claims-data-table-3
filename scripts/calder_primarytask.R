@@ -3,13 +3,7 @@ library(tidyverse)
 library(tidymodels)
 library(tensorflow)
 library(keras3)
-library(tidytext)
-library(textstem)
-library(rvest)
-library(qdapRegex)
-library(stopwords)
-library(tokenizers)
-library(xml2)
+
 
 # Loading in the cleaned data
 load("data/claims-clean-example.RData")
@@ -118,9 +112,36 @@ binary_predict = model_binary %>% predict(claim_testing)
 
 multi_predict = model_multi %>% predict(claim_testing)
 
-preds_df = data.frame(
+# Saving models and data frame
+
+save_model(model_binary, filepath = "results/binary-model.keras")
+
+save_model(model_multi, filepath = "results/multi-model.keras")
+
+# Collapsing columns and setting up bclass and mclass columns
+
+labels = c("Relevant Content", "N/A - No Relevant Content", "Physical Activity", 
+           "Potentially Unlawful Activity", "Other Claim Content")
+
+bclass_clean = c(1:915)
+for(each_index in 1:915)
+{
+  if(binary_predict[each_index] >= 0.5)
+  {
+    bclass_clean[each_index] = labels[1]
+  }
+  else{
+    bclass_clean[each_index] = labels[2]
+  }
+}
+
+
+binary_df = data.frame(
   ID = claim_clean_testing$.id,
-  relevant_claim_binary = format(binary_predict[1:915], scientific = FALSE),
+  bclass = bclass_clean
+)
+
+multi_df = data.frame(
   no_relevant_content = format(multi_predict[1:915,1], scientific = FALSE),
   physical_activity = format(multi_predict[1:915,2], scientific = FALSE),
   possible_fatality = format(multi_predict[1:915,3], scientific = FALSE),
@@ -129,11 +150,11 @@ preds_df = data.frame(
   other_claim_content = format(multi_predict[1:915,5], scientific = FALSE)
 )
 
+collapsed_multi_df = data.frame(mclass = names(multi_df)[max.col(multi_df)])
+
+preds_df = data.frame(binary_df, collapsed_multi_df)
+
 # Saving models and data frame
-
-save_model(model_binary, filepath = "results/binary-model.keras")
-
-save_model(model_multi, filepath = "results/multi-model.keras")
 
 # Deliverable 3 -  Store the data frame as an RData file. 
 
