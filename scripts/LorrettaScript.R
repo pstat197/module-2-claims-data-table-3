@@ -213,8 +213,8 @@ metrics_text(
   event_level = "second"
 )
 
-# Baseline Accuracy: 0.762
-# ROC AUC Baseline: 0.198
+# Baseline Accuracy: 0.766
+# ROC AUC Baseline: 0.208
 
 # =============================================================================
 # Preliminary Task 1 Question
@@ -222,8 +222,8 @@ metrics_text(
 # regression?
 # No, binary class predictions were not improved in terms of classification
 # accuracy using logistic principal component regression (as the accuracy was
-# decreased from 0.762 to 0.723). However, logistic PCR provided a substantial 
-# improvement in discriminatory ability, increasing ROC AUC from 0.198 to 0.760,
+# decreased from 0.766 to 0.723). However, logistic PCR provided a substantial 
+# improvement in discriminatory ability, increasing ROC AUC from 0.208 to 0.760,
 # indicating that although accuracy decreased slightly, the PCR model produced
 # far more meaningful probability estimates and separated the classes much
 # better. Overall, if accuracy is the metric of interest, the baseline model
