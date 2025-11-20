@@ -1,37 +1,106 @@
 ---
 title: "Predictive modeling of claims status"
-author: 'YOUR NAMES HERE'
+author: 'Calder Glass, Andrew Guerra, Lorretta Lu, Justin Zhou, Wendy Zhu'
 date: today
 ---
 
 ### Abstract
 
-Provide a 3-5 sentence summary of your work on the primary task. Indicate what input data was used, what method was used for binary class predictions, what method was used for multiclass predictions, and what estimated accuracies were achieved.
-
-> *Header and paragraph content was scraped from the raw webpages and processed into term frequencies of word tokens. For binary classification, a two-layer neural network yielded an estimated 81.4% accuracy; for multiclass classification, a support vector machine gave 78% accuracy.*
+We analyzed the text content of web pages to predict the classification of insurance claims. To do so, we relied on text data as our input data, which was scraped from HTML, cleaned, and processed into TF-IDF vector representations. For both binary and multiclass predictions, we utilized feed-forward neural networks with Keras. After constructing and evaluating our models, we found that the binary model achieved an estimated accuracy of 81.5% on the test data, while the multiclass model achieved an estimated accuracy of about 77%.
 
 ### Preprocessing
 
-In one paragraph lay out your preprocessing pipeline. No need to provide exact step-by-step detail; just give an overview of the main components:
+Our preprocessing pipeline helped extract meaning out of raw web content. To do so, we transformed raw web content into numerical vectors that we can feed to our neural network models. We began by extracting the main textual content from each webpage by selecting paragraph elements from the raw HTML and removing all structural markup. The extracted text was then cleaned by removing URLs, emails, punctuation, digits, symbols, extra whitespace, and by converting all text to lowercase to ensure consistent token matching. After cleaning, we applied the Keras function, 'layer_text_vectorization()', which converted our text into numeric tensors using TF-IDF as the output and splitting the text by whitespace. Through this process, we created vectors that reflect the relative importance of word elements within each document compared to the overall set of documents.
 
--   what text content was extracted from HTML
-
--   how text was cleaned
-
--   how cleaned text was represented quantitatively
+After cleaning, the text was tokenized into individual words and transformed into a quantitative representation using term frequency-inverse document frequency (TF-IDF), yielding a high-dimensional numerical feature matrix suitable for statistical modeling. In Preliminary Task 1, we further reduced this feature space using principal component analysis (PCA) so that the model operated on a smaller set of orthogonal text-derived components rather than the full TF-IDF vocabulary.
 
 ### Methods
 
-Describe your final predictive models. Include one paragraph with details on the binary classification approach, and one on the multiclass approach. Include for each:
-
--   what ML/statistical method was used
-
--   model specification and hyperparameter selection
-
--   training method
+Using Keras and TensorFlow, we developed two separate neural network models. Our first model, the Binary Classification Model, was implemented with a sequential neural network. The architecture consisted of a TF-IDF text vectorization layer, followed by a hidden layer of 16 units. To prevent overfitting our model, we added a dropout layer with a rate of 0.3, followed by a second dense layer with 8 units. The output layer used a single unit with a sigmoid activation function to produce a score between 0 and 1. The model was then compiled with the Adam optimizer and binary cross-entropy loss, and trained for 15 epochs with a 20% validation split. For the Multiclass Classification Model, we used a larger framework that used a dense layer of 32 units after the TF-IDF layer. The dropout layer rate remained at 0.3 and the second dense layer included 16 units. The output layer consistent of 5 units with a softmax activation function. This model was compiled using the Adam optimizer and categorical cross-entropy loss.
 
 ### Results
 
-Indicate the predictive accuracy of the binary classifications and the multiclass classifications. Provide a table for each, and report sensitivity, specificity, and accuracy.[^1]
+For the binary classification model, predictive performance was evaluated on the held-out test set using accuracy, sensitivity, and specificity. The logistic PCR model achieved an overall accuracy of 0.815, with a sensitivity of 0.802 and a specificity of 0.831.
 
-[^1]: Read [this article](https://yardstick.tidymodels.org/articles/multiclass.html) on multiclass averaging.
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='asis'}
+library(tidyverse)
+library(tidymodels)
+library(tensorflow)
+library(keras3)
+library(yardstick)
+library(here)
+load(here("data/claims-clean-example.RData"))
+
+# partition data
+set.seed(112025)
+tensorflow::set_random_seed(112025)
+claims_partition = claims_clean %>%
+ select(c(.id, label, mclass, bclass, text_clean)) %>%
+ initial_split(0.8)
+
+train_data <- training(claims_partition)
+test_data <- testing(claims_partition)
+
+# classification model
+b_levels <- levels(train_data$bclass)
+claims_training_input <- train_data %>% pull(text_clean)
+claims_training_label_binary <- train_data %>%
+ pull(bclass) %>% as.numeric() - 1
+
+# train model
+preprocess_layer <- layer_text_vectorization(
+ standardize = NULL,
+ split = 'whitespace',
+ output_mode = 'tf_idf'
+ )
+preprocess_layer %>% adapt(claims_training_input)
+
+model_binary <- keras_model_sequential() %>%
+ preprocess_layer() %>%
+ layer_dense(units = 16, activation = "relu") %>%
+ layer_dropout(rate = 0.3) %>%
+ layer_dense(units = 8, activation = "relu") %>%
+ layer_dense(units = 1, activation = "sigmoid")
+
+model_binary %>% compile(
+ optimizer = "adam",
+ loss = "binary_crossentropy",
+ metrics = c("accuracy")
+)
+
+history <- model_binary %>%
+fit(claims_training_input,
+ claims_training_label_binary,
+ validation_split = 0.2,
+ epochs = 15,
+ verbose = 0)
+
+# predict on test data
+preds_prob <- model_binary %>% predict(test_data$text_clean, verbose = 0)
+preds_class_vec <- ifelse(preds_prob >= 0.5, b_levels[2], b_levels[1])
+preds_class <- factor(preds_class_vec, levels = b_levels)
+
+# creating df
+test_df1 <- data.frame(
+ truth = test_data$bclass,
+ estimate = preds_class
+)
+
+metrics_bin <- metric_set(accuracy, sensitivity, specificity)
+
+metric_results <- metrics_bin(
+ data = test_df1,
+ truth = truth,
+ estimate = estimate,
+ event_level = "second"
+)
+
+clean_results_table <- metric_results %>%
+  select(-.estimator) %>%
+  rename(Metric = .metric,
+         Estimate = .estimate
+         )
+
+knitr::kable(clean_results_table, digits = 3,
+             caption = "Binary Classification Model Performance")
+```

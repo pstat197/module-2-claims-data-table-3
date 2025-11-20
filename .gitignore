@@ -41,3 +41,5 @@ vignettes/*.pdf
 
 # testing data
 private
+scripts/results/
+writeups/prediction-summary_files/

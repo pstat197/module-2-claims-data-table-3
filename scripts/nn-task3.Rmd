@@ -1,0 +1,162 @@
+---
+title: "Preliminary Task 3"
+author: "Justin Zhou"
+date: "2025-11-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE
+)
+```
+
+```{r}
+# Preliminary Task 3: Neural network for binary classification (bclass)
+
+library(tidyverse)  # dplyr, tibble, magrittr pipes, etc.
+library(nnet)       # neural network model (single hidden layer)
+```
+
+
+```{r}
+# 1. Load
+
+load("../data/claims-clean-example.RData")
+str(claims_clean)
+
+# Drop ID and label columns and keep only numeric features.
+feat_df <- claims_clean %>%
+  select(-.id, -bclass, -mclass) %>%   # drop IDs and labels
+  select(where(is.numeric))            # keep only numeric features
+
+X <- as.matrix(feat_df)
+y <- claims_clean$bclass   
+```
+
+
+```{r}
+# 2. Train / validation split
+
+set.seed(197) 
+
+n <- nrow(X)
+train_idx <- sample(seq_len(n), size = floor(0.7 * n))
+
+X_train <- X[train_idx, , drop = FALSE]
+X_val   <- X[-train_idx, , drop = FALSE]
+
+y_train <- y[train_idx]
+y_val   <- y[-train_idx]
+
+# Standardize features based on the training set
+X_train_scaled <- scale(X_train)
+train_center   <- attr(X_train_scaled, "scaled:center")
+train_scale    <- attr(X_train_scaled, "scaled:scale")
+
+X_val_scaled <- scale(X_val,
+                      center = train_center,
+                      scale  = train_scale)
+```
+
+
+```{r}
+# 3. Logistic PCR baseline
+
+# PCA on standardized training features
+pca_fit <- prcomp(X_train_scaled, center = FALSE, scale. = FALSE)
+
+# Choose number of PCs to explain ~90% of variance
+cum_var <- summary(pca_fit)$importance["Cumulative Proportion", ]
+k_pcs   <- which(cum_var >= 0.90)[1]
+
+message("Using ", k_pcs, " principal components for logistic PCR.")
+
+Z_train <- pca_fit$x[, 1:k_pcs, drop = FALSE]
+Z_val   <- predict(pca_fit, newdata = X_val_scaled)[, 1:k_pcs, drop = FALSE]
+
+df_train_pcr <- as.data.frame(Z_train) %>%
+  mutate(bclass = y_train)
+
+df_val_pcr <- as.data.frame(Z_val)
+
+# Fit logistic regression on PCs
+glm_fit <- glm(bclass ~ ., data = df_train_pcr, family = binomial())
+
+# Predict on validation set
+logit_prob <- predict(glm_fit, newdata = df_val_pcr, type = "response")
+
+# Threshold at 0.5 and map back to factor levels
+pos_level <- levels(y_train)[2]
+neg_level <- levels(y_train)[1]
+
+logit_class <- ifelse(logit_prob > 0.5, pos_level, neg_level) %>%
+  factor(levels = levels(y_train))
+
+logit_acc <- mean(logit_class == y_val)
+
+cat("\nLogistic PCR validation accuracy:", round(logit_acc, 3), "\n")
+```
+
+
+```{r}
+# 4. Neural network model with `nnet`
+
+# `nnet` can use the scaled features directly via a formula interface.
+df_train_nn <- as.data.frame(X_train_scaled) %>%
+  mutate(bclass = y_train)
+
+df_val_nn <- as.data.frame(X_val_scaled)
+
+# Fit the neural network
+set.seed(197)
+nn_fit <- nnet(
+  bclass ~ .,
+  data   = df_train_nn,
+  size   = 10,      # number of hidden units
+  decay  = 1e-4,    # weight decay (regularization)
+  maxit  = 200,
+  trace  = FALSE
+)
+
+# Predictions on validation set
+nn_pred_class <- predict(nn_fit, df_val_nn, type = "class")
+nn_acc <- mean(nn_pred_class == y_val)
+
+cat("\nNeural net (nnet) validation accuracy:", round(nn_acc, 3), "\n")
+```
+
+
+```{r}
+# 5. Compare models and save results
+
+results_task3 <- tibble(
+  model    = c("logistic_PCR", "neural_net_nnet"),
+  accuracy = c(logit_acc, nn_acc)
+)
+
+print(results_task3)
+
+# Create results directory if needed
+dir.create("../results", showWarnings = FALSE)
+
+# Save the NN model and scaling info (for potential reuse)
+save(
+  nn_fit,
+  train_center,
+  train_scale,
+  file = "../results/nn-binary-task3-nnet.RData"
+)
+
+# Save the accuracy summary so writeups (or other scripts) can load it
+save(results_task3, file = "../results/task3-accuracy.RData")
+
+```
+
+## Summary of Preliminary Task 3
+
+In this task I compared a logistic principal component regression (logistic PCR) baseline with a simple neural network for predicting the binary claims label `bclass`. Starting from the cleaned dataset `claims_clean`, I removed ID and label columns and kept only numeric text features. I then split the data into a 70 percent training set and a 30 percent validation set and standardized all features using the training set mean and standard deviation.
+
+For the logistic PCR model, I applied principal component analysis to the standardized training features and chose the smallest number of components that explained about 90 percent of the total variance. I then fit a logistic regression using these principal components as predictors and evaluated it on the held-out validation set. This model achieved a validation accuracy of about `r round(logit_acc, 3)`, which is only slightly better or even slightly worse than guessing, depending on the class balance. This suggests that the aggressive dimension reduction in logistic PCR does not capture enough of the structure that is relevant for distinguishing claims from non-claims.
+
+Next, I fit a neural network using the `nnet` package with one hidden layer of 10 units, weight decay for regularization, and the same standardized features. On the same validation split, the neural network achieved a higher accuracy of about `r round(nn_acc, 3)`. This indicates that a non-linear model that works directly with the scaled feature space can extract more useful signal than the logistic PCR baseline. Overall, for Preliminary Task 3, the neural network clearly outperforms logistic PCR on this dataset and provides a stronger starting point for the primary predictive modeling task, although there is still substantial room to tune hyperparameters and explore deeper architectures to further improve accuracy.
