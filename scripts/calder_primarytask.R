@@ -115,7 +115,6 @@ multi_predict = model_multi %>% predict(claim_testing)
 # Saving models and data frame
 
 save_model(model_binary, filepath = "results/binary-model.keras")
-
 save_model(model_multi, filepath = "results/multi-model.keras")
 
 # Collapsing columns and setting up bclass and mclass columns
